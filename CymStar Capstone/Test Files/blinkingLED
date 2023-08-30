@@ -1,0 +1,288 @@
+////////////////////////////////////////
+//	blinkExternalLED.pru0.c
+//	Blinks one LED wired to P9_14 by writing to memory using the PRU
+//	Wiring:	P9_14 connects to the plus lead of an LED.  The negative lead of the
+//			LED goes to a 220 Ohm resistor.  The other lead of the resistor goes
+//			to ground.
+//	Setup:	Set the direction to out on P9_14
+//	See:	prugpio.h to see to which ports the P8 and P9 pins are attached
+//	PRU:	pru0
+////////////////////////////////////////
+#include <stdint.h>
+#include <pru_cfg.h>
+#include "resource_table_empty.h"
+#include "gpiofile1.h"
+/*
+volatile register unsigned int __R30;
+volatile register unsigned int __R31;
+*/
+
+#define PRU_SHARED_MEM_ADDR 0x00010000
+#define second 200000000
+#define TEST_STATUS 		999
+#define IDLE_STATUS 		1000
+#define CW_RECEIVE_STATUS	1010
+#define SW1_TRANSMIT_STATUS 1020
+#define DW_TRANSMIT_STATUS	1030
+#define DW_RECEIVE_STATUS	1040
+#define SW2_TRANSMIT_STATUS 1050
+#define GPIO_0_OUT shared_mem[0]
+#define GPIO_1_OUT shared_mem[1]
+#define GPIO_2_OUT shared_mem[2]
+#define STATUS_OUT shared_mem[3]
+#define RXDATA_OUT shared_mem[4]
+#define TXDATA_IN shared_mem[5]
+#define ERRMSG_OUT shared_mem[6]
+#define CMDMSG_IN shared_mem[7]
+#define RXTICK_OUT shared_mem[8]
+#define RCVA_OUT shared_mem[9]
+#define SAM_OUT shared_mem[10]
+#define RTADDRESS_IN shared_mem[11]
+#define RCVA P9_14
+#define REG P8_15
+#define RW P9_16
+#define STRBn P8_17
+#define MR P9_18
+#define SYNC P8_18
+#define D15 P8_35
+#define D14 P8_43
+#define D13 P8_33
+#define D12 P9_30
+#define D11 P8_31
+#define D10 P8_41
+#define D9  P8_29
+#define D8  P9_28 //P9_30 // P9_28
+#define D7  P8_27
+#define D6  P8_39
+#define D5  P8_25
+#define D4  P9_26
+#define D3  P8_23
+#define D2  P9_24
+#define D1  P8_21
+#define D0  P9_22
+//#define CLK P8_8
+#define CHBCHA P9_12
+#define ERROR P8_37
+void all_on()
+{
+	gpio1[GPIO_SETDATAOUT] = P8_15;
+	gpio0[GPIO_SETDATAOUT] |= P8_17;
+	gpio0[GPIO_SETDATAOUT] |= P8_19;
+	gpio1[GPIO_SETDATAOUT] |= P8_21;
+	gpio1[GPIO_SETDATAOUT] |= P8_23;
+	gpio1[GPIO_SETDATAOUT] |= P8_25;
+	gpio2[GPIO_SETDATAOUT] |= P8_27;
+	gpio2[GPIO_SETDATAOUT] |= P8_29;
+	gpio0[GPIO_SETDATAOUT] |= P8_31;
+	gpio0[GPIO_SETDATAOUT] |= P8_33;
+	gpio0[GPIO_SETDATAOUT] |= P8_35;
+	gpio2[GPIO_SETDATAOUT] |= P8_37;
+	gpio2[GPIO_SETDATAOUT] |= P8_39;
+	gpio2[GPIO_SETDATAOUT] |= P8_41;
+	gpio1[GPIO_SETDATAOUT] |= P9_12;
+	gpio1[GPIO_SETDATAOUT] |= P9_14;
+	gpio1[GPIO_SETDATAOUT] |= P9_16;
+	gpio0[GPIO_SETDATAOUT] |= P9_18;
+	gpio0[GPIO_SETDATAOUT] |= P9_19;
+	gpio0[GPIO_SETDATAOUT] |= P9_22;
+	gpio0[GPIO_SETDATAOUT] |= P9_24;
+	gpio0[GPIO_SETDATAOUT] |= P9_26;
+	gpio3[GPIO_SETDATAOUT] |= P9_28;
+	gpio3[GPIO_SETDATAOUT] |= P9_30;
+}
+void all_off()
+{
+	gpio1[GPIO_CLEARDATAOUT] |= P8_15;
+	gpio0[GPIO_CLEARDATAOUT] |= P8_17;
+	gpio0[GPIO_CLEARDATAOUT] |= P8_19;
+	gpio1[GPIO_CLEARDATAOUT] |= P8_21;
+	gpio1[GPIO_CLEARDATAOUT] |= P8_23;
+	gpio1[GPIO_CLEARDATAOUT] |= P8_25;
+	gpio2[GPIO_CLEARDATAOUT] |= P8_27;
+	gpio2[GPIO_CLEARDATAOUT] |= P8_29;
+	gpio0[GPIO_CLEARDATAOUT] |= P8_31;
+	gpio0[GPIO_CLEARDATAOUT] |= P8_33;
+	gpio0[GPIO_CLEARDATAOUT] |= P8_35;
+	gpio2[GPIO_CLEARDATAOUT] |= P8_37;
+	gpio2[GPIO_CLEARDATAOUT] |= P8_39;
+	gpio2[GPIO_CLEARDATAOUT] |= P8_41;
+	gpio1[GPIO_CLEARDATAOUT] |= P9_12;
+	gpio1[GPIO_CLEARDATAOUT] |= P9_14;
+	gpio1[GPIO_CLEARDATAOUT] |= P9_16;
+	gpio0[GPIO_CLEARDATAOUT] |= P9_18;
+	gpio0[GPIO_CLEARDATAOUT] |= P9_19;
+	gpio0[GPIO_CLEARDATAOUT] |= P9_22;
+	gpio0[GPIO_CLEARDATAOUT] |= P9_24;
+	gpio0[GPIO_CLEARDATAOUT] |= P9_26;
+	gpio3[GPIO_CLEARDATAOUT] |= P9_28;
+	gpio3[GPIO_CLEARDATAOUT] |= P9_30;
+}
+void all_input()
+{
+	gpio1[GPIO_DIR] |= P8_15;
+	gpio0[GPIO_DIR] |= P8_17;
+	gpio0[GPIO_DIR] |= P8_19;
+	gpio1[GPIO_DIR] |= P8_21;
+	gpio1[GPIO_DIR] |= P8_23;
+	gpio1[GPIO_DIR] |= P8_25;
+	gpio2[GPIO_DIR] |= P8_27;
+	gpio2[GPIO_DIR] |= P8_29;
+	gpio0[GPIO_DIR] |= P8_31;
+	gpio0[GPIO_DIR] |= P8_33;
+	gpio0[GPIO_DIR] |= P8_35;
+	gpio2[GPIO_DIR] |= P8_37;
+	gpio2[GPIO_DIR] |= P8_39;
+	gpio2[GPIO_DIR] |= P8_41;
+	gpio1[GPIO_DIR] |= P9_12;
+	gpio1[GPIO_DIR] |= P9_14;
+	gpio1[GPIO_DIR] |= P9_16;
+	gpio0[GPIO_DIR] |= P9_18;
+	gpio0[GPIO_DIR] |= P9_19;
+	gpio0[GPIO_DIR] |= P9_22;
+	gpio0[GPIO_DIR] |= P9_24;
+	gpio0[GPIO_DIR] |= P9_26;
+	gpio3[GPIO_DIR] |= P9_28;
+	gpio3[GPIO_DIR] |= P9_30;
+}
+void all_output()
+{
+	gpio1[GPIO_DIR] &= ~P8_15;
+	gpio0[GPIO_DIR] &= ~P8_17;
+	gpio0[GPIO_DIR] &= ~P8_19;
+	gpio1[GPIO_DIR] &= ~P8_21;
+	gpio1[GPIO_DIR] &= ~P8_23;
+	gpio1[GPIO_DIR] &= ~P8_25;
+	gpio2[GPIO_DIR] &= ~P8_27;
+	gpio2[GPIO_DIR] &= ~P8_29;
+	gpio0[GPIO_DIR] &= ~P8_31;
+	gpio0[GPIO_DIR] &= ~P8_33;
+	gpio0[GPIO_DIR] &= ~P8_35;
+	gpio2[GPIO_DIR] &= ~P8_37;
+	gpio2[GPIO_DIR] &= ~P8_39;
+	gpio2[GPIO_DIR] &= ~P8_41;
+	gpio1[GPIO_DIR] &= ~P9_12;
+	gpio1[GPIO_DIR] &= ~P9_14;
+	gpio1[GPIO_DIR] &= ~P9_16;
+	gpio0[GPIO_DIR] &= ~P9_18;
+	gpio0[GPIO_DIR] &= ~P9_19;
+	gpio0[GPIO_DIR] &= ~P9_22;
+	gpio0[GPIO_DIR] &= ~P9_24;
+	gpio0[GPIO_DIR] &= ~P9_26;
+	gpio3[GPIO_DIR] &= ~P9_28;
+	gpio3[GPIO_DIR] &= ~P9_30;
+}
+void test_status()
+{
+	STATUS_OUT = TEST_STATUS;
+	
+	all_output();
+	all_on();
+	__delay_cycles(second/2);		// Wait 1/2 second
+	all_off();
+	__delay_cycles(second/2);		// Wait 1/2 second
+}
+void main(void) {
+	
+	// Points to the GPIO port that is used
+	
+//	uint32_t *gpio1 = (uint32_t *)GPIO1;
+
+	/* Clear SYSCFG[STANDBY_INIT] to enable OCP master port */
+	/*
+	CT_CFG.SYSCFG_bit.STANDBY_INIT = 0;
+
+	while(1) {
+		gpio1[GPIO_SETDATAOUT]   = P9_14;	// Turn the USR1 LED on
+	//	gpio1[GPIO_SETDATAOUT] = P9_16;
+		__delay_cycles(500000000/5);
+		// Wait 1/2 second
+	//	gpio1[GPIO_CLEARDATAOUT] =P9_16;
+		gpio1[GPIO_CLEARDATAOUT] = P9_14;	// Off
+		__delay_cycles(500000000/5); 
+	}
+	__halt();
+	*/
+	
+  // this section is a test to try inputs and outputs
+		gpio1[GPIO_DIR] |= P8_15; //input
+		gpio1[GPIO_DIR] &= ~P9_16; //output
+		gpio1[GPIO_SETDATAOUT] |= P9_16;
+		
+	while(1){
+		if(P8_15 > 1){
+				gpio3[GPIO_DIR] &= ~P9_30; // led control
+					gpio3[GPIO_SETDATAOUT] |= P9_30;
+
+		}
+		else{
+				gpio3[GPIO_DIR] &= ~P9_30;
+				gpio3[GPIO_CLEARDATAOUT] |= P9_30;
+		}
+	
+		
+		
+	}
+	// uncomment this to blink all LEDs
+	/*
+	while(1){
+	test_status();
+	}
+	*/
+}
+
+
+// Set direction of P9_14 (which is port 1 pin 18)
+#pragma DATA_SECTION(init_pins, ".init_pins")
+#pragma RETAIN(init_pins)
+const char init_pins[] =  
+"/sys/class/gpio/gpio26/direction\0out\0" \
+	"/sys/class/gpio/gpio27/direction\0out\0" \
+	"/sys/class/gpio/gpio22/direction\0out\0" \
+	"/sys/class/gpio/gpio10/direction\0out\0" \
+	"/sys/class/gpio/gpio11/direction\0out\0" \
+	"/sys/class/gpio/gpio9/direction\0out\0"  \
+	"/sys/class/gpio/gpio8/direction\0out\0"  \
+	"/sys/class/gpio/gpio47/direction\0out\0" \
+	"/sys/class/gpio/gpio46/direction\0out\0" \
+	"/sys/class/gpio/gpio63/direction\0out\0" \
+	"/sys/class/gpio/gpio62/direction\0out\0" \
+	"/sys/class/gpio/gpio37/direction\0out\0" \
+	"/sys/class/gpio/gpio36/direction\0out\0" \
+	"/sys/class/gpio/gpio33/direction\0out\0" \
+	"/sys/class/gpio/gpio32/direction\0out\0" \
+	"/sys/class/gpio/gpio61/direction\0out\0" \
+	"/sys/class/gpio/gpio65/direction\0out\0" \
+	"/sys/class/gpio/gpio86/direction\0out\0" \
+	"/sys/class/gpio/gpio88/direction\0out\0" \
+	"/sys/class/gpio/gpio87/direction\0out\0" \
+	"/sys/class/gpio/gpio89/direction\0out\0" \
+	"/sys/class/gpio/gpio81/direction\0out\0" \
+	"/sys/devices/platform/ocp/ocp:P8_15_pinmux/state\0gpio\0" \
+	"/sys/devices/platform/ocp/ocp:P8_17_pinmux/state\0gpio\0" \
+	"/sys/devices/platform/ocp/ocp:P8_19_pinmux/state\0gpio\0" \
+	"/sys/devices/platform/ocp/ocp:P8_21_pinmux/state\0gpio\0" \
+	"/sys/devices/platform/ocp/ocp:P8_23_pinmux/state\0gpio\0" \
+	"/sys/devices/platform/ocp/ocp:P8_25_pinmux/state\0gpio\0" \
+	"/sys/devices/platform/ocp/ocp:P8_27_pinmux/state\0gpio\0" \
+	"/sys/devices/platform/ocp/ocp:P8_29_pinmux/state\0gpio\0" \
+	"/sys/devices/platform/ocp/ocp:P8_31_pinmux/state\0gpio\0" \
+	"/sys/devices/platform/ocp/ocp:P8_33_pinmux/state\0gpio\0" \
+	"/sys/devices/platform/ocp/ocp:P8_35_pinmux/state\0gpio\0" \
+	"/sys/devices/platform/ocp/ocp:P8_37_pinmux/state\0gpio\0" \
+	"/sys/devices/platform/ocp/ocp:P8_39_pinmux/state\0gpio\0" \
+	"/sys/devices/platform/ocp/ocp:P8_41_pinmux/state\0gpio\0" \
+	"/sys/devices/platform/ocp/ocp:P9_12_pinmux/state\0gpio\0" \
+	"/sys/devices/platform/ocp/ocp:P9_14_pinmux/state\0gpio\0" \
+	"/sys/devices/platform/ocp/ocp:P9_16_pinmux/state\0gpio\0" \
+	"/sys/devices/platform/ocp/ocp:P9_18_pinmux/state\0gpio\0" \
+	"/sys/devices/platform/ocp/ocp:P9_19_pinmux/state\0gpio\0" \
+	"/sys/devices/platform/ocp/ocp:P9_22_pinmux/state\0gpio\0" \
+	"/sys/devices/platform/ocp/ocp:P9_24_pinmux/state\0gpio\0" \
+	"/sys/devices/platform/ocp/ocp:P9_26_pinmux/state\0gpio\0" \
+	"/sys/devices/platform/ocp/ocp:P9_28_pinmux/state\0gpio\0" \
+	"/sys/devices/platform/ocp/ocp:P9_30_pinmux/state\0gpio\0" \
+	"\0\0";
+
+// The export doesn't have to be done on the Black since 
+//	GPIOs are already exported
+	// "/sys/class/gpio/export\0 177\0" 
